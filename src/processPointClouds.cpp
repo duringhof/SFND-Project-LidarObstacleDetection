@@ -1,6 +1,7 @@
-// PCL lib Functions for processing point clouds 
+// PCL lib Functions for processing point clouds
 
 #include "processPointClouds.h"
+#include <unordered_set>
 
 
 //constructor:
@@ -65,20 +66,58 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     // Time segmentation process
     auto startTime = std::chrono::steady_clock::now();
 
-    pcl::SACSegmentation<pcl::PointXYZ> seg;
-    pcl::PointIndices::Ptr inliers {new pcl::PointIndices};
-    pcl::ModelCoefficients::Ptr coefficients {new pcl::ModelCoefficients};
+    pcl::PointIndices::Ptr inliers{new pcl::PointIndices};
+    std::unordered_set<int> inliers_result;
 
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setMaxIterations(maxIterations);
-    seg.setDistanceThreshold(distanceThreshold);
+    while (maxIterations--) {
 
-    seg.setInputCloud(cloud);
-    seg.segment (*inliers, *coefficients);
-    if (inliers->indices.size() == 0) {
-      std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
+      std::unordered_set<int> inliers_set;
+
+      while (inliers_set.size() < 3)
+        inliers_set.insert(rand() % (cloud->points.size()));
+
+      float x1, y1, z1, x2, y2, z2, x3, y3, z3;
+      auto itr = inliers_set.begin();
+      x1 = cloud->points[*itr].x;
+      y1 = cloud->points[*itr].y;
+      z1 = cloud->points[*itr].z;
+      itr++;
+      x2 = cloud->points[*itr].x;
+      y2 = cloud->points[*itr].y;
+      z2 = cloud->points[*itr].z;
+      itr++;
+      x3 = cloud->points[*itr].x;
+      y3 = cloud->points[*itr].y;
+      z3 = cloud->points[*itr].z;
+
+      float a = ((y2 - y1) * (z3 - z1)) - ((z2 - z1) * (y3 - y1));
+      float b = ((z2 - z1) * (x3 - x1)) - ((x2 - x1) * (z3 - z1));
+      float c = ((x2 - x1) * (y3 - y1)) - ((y2 - y1) * (x3 - x1));
+      float d = -1 * (a * x1 + b * y1 + c * z1);
+
+      for (int index = 0; index < cloud->points.size(); index++) {
+
+        if (inliers_set.count(index) > 0)
+          continue;
+
+        pcl::PointXYZ point = cloud->points[index];
+        float x4 = point.x;
+        float y4 = point.y;
+        float z4 = point.z;
+
+        float dist =
+            fabs(a * x4 + b * y4 + c * z4 + d) / sqrt(a * a + b * b + c * c);
+
+        if (dist <= distanceThreshold)
+          inliers_set.insert(index);
+      }
+
+      if (inliers_set.size() > inliers_result.size())
+        inliers_result = inliers_set;
+    }
+
+    for (auto i : inliers_result) {
+      inliers->indices.push_back(i);
     }
 
     std::pair<typename pcl::PointCloud<PointT>::Ptr,

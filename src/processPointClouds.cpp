@@ -21,21 +21,52 @@ void ProcessPointClouds<PointT>::numPoints(typename pcl::PointCloud<PointT>::Ptr
 }
 
 
-template<typename PointT>
-typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint)
-{
+template <typename PointT>
+typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(
+    typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes,
+    Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint) {
 
-    // Time segmentation process
-    auto startTime = std::chrono::steady_clock::now();
+  // Time filtering process
+  auto startTime = std::chrono::steady_clock::now();
 
-    // TODO:: Fill in the function to do voxel grid point reduction and region based filtering
+  // Create the filtering object
+  pcl::VoxelGrid<PointT> vg;
+  typename pcl::PointCloud<PointT>::Ptr cloudFiltered (new pcl::PointCloud<PointT>);
+  vg.setInputCloud (cloud);
+  vg.setLeafSize (filterRes, filterRes, filterRes);
+  vg.filter(*cloudFiltered);
 
-    auto endTime = std::chrono::steady_clock::now();
-    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
+  typename pcl::PointCloud<PointT>::Ptr cloudRegion(
+      new pcl::PointCloud<PointT>);
+  pcl::CropBox<PointT> region(true);
+  region.setMin(minPoint);
+  region.setMax(maxPoint);
+  region.setInputCloud(cloudFiltered);
+  region.filter(*cloudRegion);
 
-    return cloud;
+  std::vector<int> indices;
 
+  pcl::CropBox<PointT> roof(true);
+  roof.setMin(Eigen::Vector4f(-1.5, -1.7, -1, 1));
+  roof.setMax(Eigen::Vector4f(2.6, 1.7, -4, 1));
+  roof.setInputCloud(cloudRegion);
+  roof.filter(indices);
+
+  pcl::PointIndices::Ptr inliers{new pcl::PointIndices};
+  for (int point : indices)
+    inliers->indices.push_back(point);
+
+  pcl::ExtractIndices<PointT> extract;
+  extract.setInputCloud(cloudRegion);
+  extract.setIndices(inliers);
+  extract.setNegative(true);
+  extract.filter(*cloudRegion);
+
+  auto endTime = std::chrono::steady_clock::now();
+  auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+  std::cout << "filtering took " << elapsedTime.count() << " milliseconds" << std::endl;
+
+  return cloudRegion;
 }
 
 

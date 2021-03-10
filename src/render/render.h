@@ -46,9 +46,9 @@ struct Car
 
 	// units in meters
   	Vect3 position, dimensions;
-  	
-  	std::string name;
   	Color color;
+  	std::string name;
+  	
 
   	Car(Vect3 setPosition, Vect3 setDimensions, Color setColor, std::string setName)
     	: position(setPosition), dimensions(setDimensions), color(setColor), name(setName)

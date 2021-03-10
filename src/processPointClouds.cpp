@@ -131,7 +131,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
         if (inliers_set.count(index) > 0)
           continue;
 
-        pcl::PointXYZ point = cloud->points[index];
+        PointT point = cloud->points[index];
         float x4 = point.x;
         float y4 = point.y;
         float z4 = point.z;
